@@ -15,18 +15,28 @@ pacman::p_load("tidyverse", "here", "assertr",
                "stopwords", "hms")
 # import data
 files <- list(
-  auth = here::here("dcblackoutinvestigation_public/analyze/input/authors_clean_df.csv"),
-  blackout = here::here("dcblackoutinvestigation_public/analyze/input/blackout_clean_df.csv"),
+  auth = 
+    here("dcblackoutinvestigation_public/analyze/input/authors_clean_df.csv"),
+  blackout = 
+    here("dcblackoutinvestigation_public/analyze/input/blackout_clean_df.csv"),
   
-  auth_tokens = here("dcblackoutinvestigation_public/report/input/auth_tokens.csv"),
-  auth_users = here("dcblackoutinvestigation_public/report/input/authors_frequsers.csv"), 
-  auth_bigrams = here("dcblackoutinvestigation_public/report/input/authors_freqbigrams.csv"),
+  auth_tokens = 
+    here("dcblackoutinvestigation_public/report/input/auth_tokens.csv"),
+  auth_users = 
+    here("dcblackoutinvestigation_public/report/input/authors_frequsers.csv"), 
+  auth_bigrams = 
+    here("dcblackoutinvestigation_public/report/input/authors_freqbigrams.csv"),
   
-  blackout_tokens = here("dcblackoutinvestigation_public/report/input/blackout_tokens.csv"),
-  blackout_users = here("dcblackoutinvestigation_public/report/input/blackout_frequsers.csv"), 
-  blackout_bigrams = here("dcblackoutinvestigation_public/report/input/blackout_freqbigrams.csv"),
-  blackout_first = here("dcblackoutinvestigation_public/report/input/blackout_freqfirst.csv"),
-  blackout_second = here("dcblackoutinvestigation_public/report/input/blackout_freqsecond.csv")
+  blackout_tokens = 
+    here("dcblackoutinvestigation_public/report/input/blackout_tokens.csv"),
+  blackout_users = 
+    here("dcblackoutinvestigation_public/report/input/blackout_frequsers.csv"), 
+  blackout_bigrams = 
+    here("dcblackoutinvestigation_public/report/input/blackout_freqbigrams.csv"),
+  blackout_first = 
+    here("dcblackoutinvestigation_public/report/input/blackout_freqfirst.csv"),
+  blackout_second = 
+    here("dcblackoutinvestigation_public/report/input/blackout_freqsecond.csv")
 )
 
 stopifnot(is_empty(files) != TRUE & length(files) == 10)
@@ -83,6 +93,7 @@ auth_df <- tibble(read_csv(files$auth,
          date_rec = ymd(date), 
          time_rec = as_hms(time)) %>% 
   filter(clean_tweet %notin% specific_swords) %>%
+  filter(tweet != "FALSE") %>%
   select( - c(cashtags, near, geo, 
               source, retweet_id, retweet_date, 
               translate,trans_src, trans_dest))
@@ -149,11 +160,12 @@ blackout_df <- tibble(read_csv(files$blackout,
          date_rec = ymd(date), 
          time_rec = as_hms(time)) %>% 
   filter(clean_tweet %notin% specific_swords) %>%
+  filter(tweet != "FALSE") %>%
   select( - c(cashtags, near, geo, 
               source, retweet_id, retweet_date, 
               translate,trans_src, trans_dest))
 
-stopifnot(ncol(blackout_df) == 29 & nrow(blackout_df) == 16299)
+stopifnot(ncol(blackout_df) == 29 & nrow(blackout_df) == 16017)
 
 blackout_tokens <- blackout_df %>%
   unnest_tokens(bigram, tweet_txt, token = "ngrams", n = 2) %>%
