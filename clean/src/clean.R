@@ -1,9 +1,9 @@
 #!/usr/bin/env Rscript --vanilla
-# set expandtab ft=R ts=4 sw=4 ai fileencoding=utf-7
+# set expandtab ft=R ts=4 sw=4 ai fileencoding=utf-8
 #
 # Author: JR
 # Maintainer(s): JR
-# License: GPL V.02
+# License: GPL V.3.0
 #
 # -----------------------------------------------------------
 # dcblackoutinvestigation_public/clean/src/clean.R
@@ -12,8 +12,6 @@
 
 pacman::p_load("tidyverse", "here", "assertr", "janitor", 
                "tidytext")
-
-here()
 
 files <- list(
   auth = here::here("clean/input/authors.csv"),
@@ -31,11 +29,27 @@ stopifnot(length(fileslist) == 2)
 # iterates over list of files, cleans the names of the columns, checks for numcol
 cleanlist <- lapply(fileslist, function(x) {
   
-  x_df <- tibble(read_csv(x, col_names = TRUE, na = c("", "[]"))) %>%
+  x_df <- tibble(read_csv(x, 
+                          col_names = TRUE, 
+                          col_types = 
+                            cols(
+                              cashtags = col_skip(), 
+                              near = col_skip(),
+                              geo = col_skip(), 
+                              source = col_skip(), 
+                              retweet_id = col_skip(), 
+                              retweet_date = col_skip(), 
+                              translate = col_skip(),
+                              trans_src = col_skip(), 
+                              trans_dest = col_skip(), 
+                              conversation_id = col_skip()),
+                          trim_ws = TRUE,
+                          na = c("", "[]", "NA"), 
+                          guess_max = 1500)) %>%
     clean_names()
   
   x_df  %>%
-    verify(ncol(x_df) == 34)
+    verify(ncol(x_df) == 24)
   
 })
 
@@ -55,17 +69,14 @@ for (i in seq_along(cleanlist)) {
   
   df <- as.data.frame(pluck(cleanlist, i))
   
-  write_excel_csv(df, 
+  write_delim(df, 
   quote = FALSE, 
-  path = here(paste("analyze/input/",names(cleanlist)[i],"_clean_df.csv", 
-				  sep = "")))
+  path = here(paste("analyze/input/",names(cleanlist)[i],"_clean_df.txt", sep = "")), 
+  delim = "|")
 
   #message to let the user know that each iteration has completed
   print(paste0("Cleaning for dataset ",names(cleanlist)[i]," has completed successfully."))
   
 } # close i loop
-
-# cashtags column shows parsing errors but this column willnot be used 
-# so I'll be ignoring this error here
 
 # done
