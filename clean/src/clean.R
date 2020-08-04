@@ -16,8 +16,8 @@ pacman::p_load("tidyverse", "here", "assertr", "janitor",
 here()
 
 files <- list(
-  auth = here::here("dcblackoutinvestigation_public/clean/input/authors.csv"),
-  blackout = here::here("dcblackoutinvestigation_public/clean/input/blackout.csv"))
+  auth = here::here("clean/input/authors.csv"),
+  blackout = here::here("clean/input/blackout.csv"))
 
 stopifnot(is_empty(files) != TRUE & length(files) == 2)
 ## Read in data, use a loop to accomodate new sheets
@@ -57,12 +57,15 @@ for (i in seq_along(cleanlist)) {
   
   write_excel_csv(df, 
   quote = FALSE, 
-  path = here(paste("dcblackoutinvestigation_public/analyze/input/",names(cleanlist)[i],"_clean_df.csv", 
+  path = here(paste("analyze/input/",names(cleanlist)[i],"_clean_df.csv", 
 				  sep = "")))
 
   #message to let the user know that each iteration has completed
   print(paste0("Cleaning for dataset ",names(cleanlist)[i]," has completed successfully."))
   
 } # close i loop
+
+# cashtags column shows parsing errors but this column willnot be used 
+# so I'll be ignoring this error here
 
 # done
