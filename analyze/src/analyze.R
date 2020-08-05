@@ -3,7 +3,7 @@
 #
 # Author: JR
 # Maintainer(s): JR
-# License: GPL V.02
+# License: GPL V.3.0
 #
 # -----------------------------------------------------------
 # dcblackoutinvestigation_public/analyze/src/analyze.R
@@ -16,48 +16,45 @@ pacman::p_load("tidyverse", "here", "assertr",
 # import data
 files <- list(
   auth = 
-    here("dcblackoutinvestigation_public/analyze/input/authors_clean_df.csv"),
+    here("analyze/input/authors_clean_df.csv"),
   blackout = 
-    here("dcblackoutinvestigation_public/analyze/input/blackout_clean_df.csv"),
+    here("analyze/input/blackout_clean_df.csv"),
   
   auth_tokens = 
-    here("dcblackoutinvestigation_public/report/input/auth_tokens.csv"),
+    here("report/input/auth_tokens.csv"),
   auth_users = 
-    here("dcblackoutinvestigation_public/report/input/authors_frequsers.csv"), 
+    here("report/input/authors_frequsers.csv"), 
   auth_bigrams = 
-    here("dcblackoutinvestigation_public/report/input/authors_freqbigrams.csv"),
+    here("report/input/authors_freqbigrams.csv"),
   
   blackout_tokens = 
-    here("dcblackoutinvestigation_public/report/input/blackout_tokens.csv"),
+    here("report/input/blackout_tokens.csv"),
   blackout_users = 
-    here("dcblackoutinvestigation_public/report/input/blackout_frequsers.csv"), 
+    here("report/input/blackout_frequsers.csv"), 
   blackout_bigrams = 
-    here("dcblackoutinvestigation_public/report/input/blackout_freqbigrams.csv"),
+    here("report/input/blackout_freqbigrams.csv"),
   blackout_first = 
-    here("dcblackoutinvestigation_public/report/input/blackout_freqfirst.csv"),
+    here("report/input/blackout_freqfirst.csv"),
   blackout_second = 
-    here("dcblackoutinvestigation_public/report/input/blackout_freqsecond.csv")
+    here("report/input/blackout_freqsecond.csv")
 )
 
 stopifnot(is_empty(files) != TRUE & length(files) == 10)
 
-# call lists of language-specific stop-words from stopwords package
-# can add more languages as needed
-stopwords_smart <- stopwords(source = "smart")
-stopwords_en <- stopwords("en")
-stopwords_ro <- stopwords("romanian")
-stopwords_ru <- stopwords("russian")
-stopwords_sp <- stopwords("spanish")
-stopwords_pg <- stopwords("portuguese")
-stopwords_fr <- stopwords("french")
-stopwords_de <- stopwords("german")
+## Read in data, use a loop to accomodate new sheets
 
-# words I identified from initial runs as not of interest, feel free to 
-# delete them from the list to include them in the results again
-specific_swords <- c("twitter", "twitter.com", "pic.twitter.com",
-                     "minecraft", "gaming.youtube.com", "giveaway", 
-                     "vgotrading", "tho", "it's", "i'm", "https", "watchgamestv", 
-                     "vgogiveaway", "youtu.be", "ta")
+# remove variables with no info in columns
+# clean up tweets (source ref: ( Hicks , 2014) and ref: (Stanton 2013))
+
+auth_df <- tibble(read_delim(files$auth, 
+                             col_names = TRUE, 
+                             delim = "|")) %>%
+  clean_names()
+
+stopifnot(ncol(auth_df) == 15 & nrow(auth_df) == 1863)
+
+############################################################################
+# auth.csv #
 
 # remove useless bigrams, mostly TSwift related but other phrases
 bad_bigrams <- c("cruel summer", "good music", "album sales", "singles sales", 
@@ -65,58 +62,23 @@ bad_bigrams <- c("cruel summer", "good music", "album sales", "singles sales",
                  "rt follow", "tweet follow", "subscribe keyword", "stupid love", 
                  "it's gonna", "enter follow", "www.youtube.com watch", 
                  "social media", "ich bin", "ist ein", "rtlike follow", 
-                 "rtlike subscribe", "road didn't", "let's make", "makes good")
-
-# filter out taylor swift related usernames 
-tay_names <- c("taylorswift13", "taylorvotestats", "tayiorvotestats")
-
-#create %notin%
-"%notin%" <- Negate("%in%")
-
-## Read in data, use a loop to accomodate new sheets
-
-# remove variables with no info in columns
-# clean up tweets (source ref: ( Hicks , 2014) and ref: (Stanton 2013))
-auth_df <- tibble(read_csv(files$auth,
-                             col_names = TRUE, 
-                             na = c("", "[]"))) %>%
-  mutate(clean_tweet = gsub("&amp", "", tweet), 
-         clean_tweet = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", "", clean_tweet),
-         clean_tweet = gsub("@\\w+", "", clean_tweet),
-         clean_tweet = gsub("[[:punct:]]", "", clean_tweet),
-         clean_tweet = gsub("[[:digit:]]", "", clean_tweet),
-         clean_tweet = gsub("http\\w+", "", clean_tweet),
-         clean_tweet = gsub("[ \t]{2,}", "", clean_tweet),
-         clean_tweet = gsub("^\\s+|\\s+$", "", clean_tweet),
-         clean_tweet = gsub("\\\\", "", clean_tweet),
-         tweet_txt = as.character(clean_tweet),
-         date_rec = ymd(date), 
-         time_rec = as_hms(time)) %>% 
-  filter(clean_tweet %notin% specific_swords) %>%
-  filter(tweet != "FALSE") %>%
-  select( - c(cashtags, near, geo, 
-              source, retweet_id, retweet_date, 
-              translate,trans_src, trans_dest))
-
-stopifnot(ncol(auth_df) == 29 & nrow(auth_df) == 1863)
-
-############################################################################
-# auth.csv #
+                 "rtlike subscribe", "road didn't", "let's make", "makes good", 
+                 "The Weeknd", "pic twitter")
 
 auth_tokens <- auth_df %>%
   unnest_tokens(bigram, tweet_txt, token = "ngrams", n = 2) %>%
-  filter(bigram %notin% bad_bigrams) %>%
+  filter(!bigram %in% bad_bigrams) %>%
   separate(bigram, into = c("first","second"), sep = " ", remove = FALSE) %>%
-  filter(first %notin% c(specific_swords, stopwords_smart, stopwords_en, 
+  filter(!first %in% c(specific_swords, stopwords_smart, stopwords_en, 
                          stopwords_ro,  stopwords_ru, stopwords_sp, 
                          stopwords_pg, stopwords_fr, stopwords_de), 
-         second %notin% c(specific_swords, stopwords_smart, stopwords_en, 
+         !second %in% c(specific_swords, stopwords_smart, stopwords_en, 
                           stopwords_ro,  stopwords_ru, stopwords_sp, 
                           stopwords_pg, stopwords_fr, stopwords_de)) %>%
   filter(str_detect(first, "[a-z]") &
            str_detect(second, "[a-z]")) %>%
   drop_na(bigram) %>%
-  filter(username %notin% tay_names)
+  filter(!username %in% tay_names)
 
 write_delim(auth_tokens, files$auth_tokens, delim = "|")
 
@@ -139,33 +101,18 @@ bigrams_auth <- auth_tokens_u %>%
   arrange(desc(n)) %>%
   filter(n > 3)
 
-stopifnot(ncol(bigrams_auth) == 2 & nrow(bigrams_auth) == 32)
+stopifnot(ncol(bigrams_auth) == 2 & nrow(bigrams_auth) == 33)
 
 write_delim(bigrams_auth, files$auth_bigrams, delim = "|")
 
 ##############################################################################
 
-blackout_df <- tibble(read_csv(files$blackout, 
-                               col_names = TRUE, na = c("", "[]"))) %>%
-  mutate(clean_tweet = gsub("&amp", "", tweet), 
-         clean_tweet = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", "", clean_tweet),
-         clean_tweet = gsub("@\\w+", "", clean_tweet),
-         clean_tweet = gsub("[[:punct:]]", "", clean_tweet),
-         clean_tweet = gsub("[[:digit:]]", "", clean_tweet),
-         clean_tweet = gsub("http\\w+", "", clean_tweet),
-         clean_tweet = gsub("[ \t]{2,}", "", clean_tweet),
-         clean_tweet = gsub("^\\s+|\\s+$", "", clean_tweet),
-         clean_tweet = gsub("\\\\", "", clean_tweet),
-         tweet_txt = as.character(clean_tweet),
-         date_rec = ymd(date), 
-         time_rec = as_hms(time)) %>% 
-  filter(clean_tweet %notin% specific_swords) %>%
-  filter(tweet != "FALSE") %>%
-  select( - c(cashtags, near, geo, 
-              source, retweet_id, retweet_date, 
-              translate,trans_src, trans_dest))
+blackout_df <- tibble(read_delim(files$blackout, 
+                                 delim = "|", 
+                                 col_names = TRUE)) %>%
+  clean_names()
 
-stopifnot(ncol(blackout_df) == 29 & nrow(blackout_df) == 16017)
+stopifnot(ncol(blackout_df) == 15 & nrow(blackout_df) == 16009)
 
 blackout_tokens <- blackout_df %>%
   unnest_tokens(bigram, tweet_txt, token = "ngrams", n = 2) %>%
