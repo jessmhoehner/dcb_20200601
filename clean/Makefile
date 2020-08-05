@@ -11,8 +11,10 @@
 HERE := $(shell Rscript --vanilla -e 'write(here::here(), stdout())')
 
 clean_data = \
-				$(HERE)/analyze/input/authors_clean_df.txt\
-				$(HERE)/analyze/input/blackout_clean_df.txt
+				$(HERE)/analyze/input/authors_clean1_df.csv \
+				$(HERE)/analyze/input/blackout_clean1_df.csv \
+				$(HERE)/analyze/input/authors_clean2_df.csv \
+				$(HERE)/analyze/input/blackout_clean2_df.csv \
 
 .PHONY:	all clean
 
