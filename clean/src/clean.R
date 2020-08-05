@@ -11,7 +11,7 @@
 # import the data into R and send to clean task
 
 pacman::p_load("tidyverse", "here", "assertr", "janitor", 
-               "tidytext", "lubridate", "hms", "stopwords")
+               "tidytext", "lubridate", "hms")
 
 files <- list(
   auth = here("clean/input/authors.csv"),
@@ -22,6 +22,7 @@ stopifnot(is_empty(files) != TRUE & length(files) == 2)
 
 # will change as more sheets are added
 stopifnot(length(files) == 2)
+
 # add unique names to each df for easy export later on
 
 df_names <- c("authors", "blackout")
@@ -31,6 +32,8 @@ names(files) <- df_names
 # iterates over list of files, cleans the names of the columns
 # keeps only columns of interest
 # checks for numcol
+# remove variables with no info in columns
+# clean up tweets (source ref: ( Hicks , 2014) and ref: (Stanton 2013))
 
 cleanlist <- lapply(files, function(x) {
   
@@ -59,7 +62,7 @@ x_df <- as.data.frame(read_csv(x, col_names = TRUE)) %>%
 })
 
 #message to update user
-print(paste0("First cleaning for datasets have completed successfully."))
+print(paste0("Cleaning for datasets have completed successfully."))
 
 #start i loop
 for (i in seq_along(cleanlist)) {
@@ -68,93 +71,80 @@ df <- as.data.frame(pluck(cleanlist, i))
   
 write_delim(df, 
               quote = FALSE, 
-              path = here(paste("analyze/input/",names(cleanlist)[i],"_clean1_df.csv",
+              path = here(paste("analyze/input/",names(cleanlist)[i],"_clean_df.csv",
                                 sep = "")), delim = "|")
   
 #message to let the user know that each iteration has completed
 print(paste0("Export for dataset ",names(cleanlist)[i]," has completed successfully."))
 
 # clean up for bigram analysis
+"%nin%" <- Negate("%in%")
 
 # call lists of language-specific stop-words from stopwords package
 # can add more languages as needed, these were all found in the data
 # throughout the analysis process
-iso_ro <- stopwords("ro", source = "stopwords-iso")
-iso_ru <- stopwords("ru", source = "stopwords-iso")
-iso_en <- stopwords("en", source = "stopwords-iso")
-iso_sp <- stopwords("es", source = "stopwords-iso")
-iso_pt <- stopwords("pt", source = "stopwords-iso")
-iso_fr <- stopwords("fr", source = "stopwords-iso")
-iso_de <- stopwords("de", source = "stopwords-iso")
-iso_nl <- stopwords("nl", source = "stopwords-iso")
-
-nltk_ro <- stopwords("ro", source = "nltk")
-nltk_ru <- stopwords("ru", source = "nltk")
-nltk_en <- stopwords("en", source = "nltk")
-nltk_sp <- stopwords("es", source = "nltk")
-nltk_pt <- stopwords("pt", source = "nltk")
-nltk_fr <- stopwords("fr", source = "nltk")
-nltk_de <- stopwords("de", source = "nltk")
-nltk_nl <- stopwords("nl", source = "nltk")
-
-snowball_ro <- stopwords("ro", source = "snowball")
-snowball_ru <- stopwords("ru", source = "snowball")
-snowball_en <- stopwords("en", source = "snowball")
-snowball_sp <- stopwords("es", source = "snowball")
-snowball_pt <- stopwords("pt", source = "snowball")
-snowball_fr <- stopwords("fr", source = "snowball")
-snowball_de <- stopwords("de", source = "snowball")
-snowball_nl <- stopwords("nl", source = "snowball")
 
 # words I identified from initial runs as not of interest, feel free to 
 # delete them from the list to include them in the results again
-specific_swords <- c("twitter", "twitter.com", "pic.twitter.com",
+# there's some strnge apostrophe's keeping in otherwise removed stopwords
+specific_swords <- as.character(c("twitter", "twitter.com", "pic.twitter.com",
                      "minecraft", "gaming.youtube.com", "giveaway", 
-                     "vgotrading", "tho", "it's", "i m", "https", "watchgamestv", 
-                     "vgogiveaway", "youtu be", "ta", "#WeMissYouTaylor",
+                     "vgotrading", "tho", "it's", "i'm", "https", "watchgamestv", 
+                     "vgogiveaway", "youtu.be", "ta", "#WeMissYouTaylor",
                      "#NYCPROTEST", "rt", "music", "iheartawards", 
                      "femaleartistoftheyear", "missamericana", "billy", "ray", 
-                     "kanye", "taylor")
-  
-# remove useless bigrams
-bad_bigrams <- c("cruel summer", "good music", "album sales", "singles sales", 
-                 "music video", "track baby", "miss americana", "taylor swift", 
-                 "taylorswift", "rt follow", "tweet follow", "subscribe keyword", 
-                 "stupid love", "it s gonna", "enter follow", "www.youtube.com watch", 
-                 "social media", "ich bin", "ist ein", "rtlike follow", 
-                 "rtlike subscribe", "road didn't", "let's make", "makes good", 
-                 "The Weeknd", "pic twitter", "premium generator", "hey guys", 
-                 "steam wallet", "wallet gift", "gift card", "kinda stream",
-                 "afternoon stream", "xbox doe", "cheap fut18", "fut18 coins", 
-                 "500k fifa18", "stay tuned", "op instagram", "gaming youtube", 
-                 "10x key", "livestream chat", "personal address", "address book")
-  
+                     "kanye", "taylor","y'alll", "you're", "youtube", "youtu", 
+                     "there's", "we'll", "ur", "we're", "yup", "yous", "youtubers", 
+                     "yep", "yeah", "yea", "youtuber", "tweet", "tweeted", "they're", 
+                     "i'm", "	don't", "i'm", "y'all", "don't", "it's", "won't","they're", 
+                     "don't", "didn't", "doesn't", "can't", "isn't", "wouldn't", "swift", 
+                     "guys", "hey", "gratis", "minecraftpremiumaccount", "user", 
+                     "account", "minecraftpremiumgenerator2015", "rockstarsupport", 
+                     "subscribe", "stream", "follow", "ain't"))
+
   y_df <- df %>%
-    unnest_tokens(bigram, tweet_txt, token = "ngrams", n = 2) %>%
-    filter(!bigram %in% bad_bigrams) %>%
-    separate(bigram, into = c("first","second"), sep = " ", remove = FALSE) %>%
-    filter(str_detect(first, "[a-z]") & str_detect(second, "[a-z]")) %>%
-    filter(!first %in% c(iso_ro, iso_ru, iso_en , iso_sp, iso_pt, iso_fr,
-                           iso_de, nltk_ro, nltk_ru, nltk_en, nltk_sp, nltk_pt, 
-                           nltk_fr, nltk_de, snowball_ro, snowball_ru, snowball_en,
-                           snowball_sp, snowball_pt, snowball_fr, snowball_de, 
-                         specific_swords), 
-           !second %in% c(iso_ro, iso_ru, iso_en , iso_sp, iso_pt, iso_fr,
-                            iso_de, nltk_ro, nltk_ru, nltk_en, nltk_sp, nltk_pt, 
-                            nltk_fr, nltk_de, snowball_ro, snowball_ru, snowball_en,
-                            snowball_sp, snowball_pt, snowball_fr, snowball_de, 
-                          specific_swords)) %>%
-    drop_na(bigram)
+    unnest_tokens(word, tweet_txt) %>%
+    mutate(word = as.character(str_to_lower(word))) %>%
+    anti_join(get_stopwords("ro", source = "stopwords-iso")) %>%
+    anti_join(get_stopwords("ru", source = "stopwords-iso")) %>%
+    anti_join(get_stopwords("en", source = "stopwords-iso"))  %>% 
+    anti_join(get_stopwords("es", source = "stopwords-iso"))  %>%
+    anti_join(get_stopwords("pt", source = "stopwords-iso"))  %>%
+    anti_join(get_stopwords("fr", source = "stopwords-iso"))  %>%
+    anti_join(get_stopwords("de", source = "stopwords-iso"))  %>%
+    anti_join(get_stopwords("nl", source = "stopwords-iso"))  %>%
+    anti_join(get_stopwords("pl", source = "stopwords-iso"))  %>%
+    anti_join(get_stopwords("ro", source = "nltk"))  %>%
+    anti_join(get_stopwords("ru", source = "nltk"))  %>%
+    anti_join(get_stopwords("en", source = "nltk"))  %>%
+    anti_join(get_stopwords("es", source = "nltk"))  %>%
+    anti_join(get_stopwords("pt", source = "nltk"))  %>%
+    anti_join(get_stopwords("fr", source = "nltk"))  %>%
+    anti_join(get_stopwords("de", source = "nltk"))  %>%
+    anti_join(get_stopwords("nl", source = "nltk"))  %>%
+    anti_join(get_stopwords("ro", source = "snowball"))  %>%
+    anti_join(get_stopwords("ru", source = "snowball"))  %>%
+    anti_join(get_stopwords("en", source = "snowball"))  %>%
+    anti_join(get_stopwords("es", source = "snowball"))  %>%
+    anti_join(get_stopwords("pt", source = "snowball"))  %>%
+    anti_join(get_stopwords("fr", source = "snowball"))  %>%
+    anti_join(get_stopwords("de", source = "snowball"))  %>%
+    anti_join(get_stopwords("nl", source = "snowball"))  %>%
+    anti_join(get_stopwords("ja", source = "stopwords-iso"))  %>%
+    anti_join(get_stopwords("ja", source = "marimo"))  %>%
+    mutate(word = as.character(word)) %>%
+    filter(!word %in% specific_swords) %>%
+    drop_na(word)
   
   y_df <- y_df  %>%
-    verify(ncol(y_df) == 17) %>%
+    verify(ncol(y_df) == 15) %>%
     write_delim(quote = FALSE, 
-                path = here(paste("analyze/input/",names(cleanlist)[i],"_clean2_df.csv",
+                path = here(paste("analyze/input/",names(cleanlist)[i],"_tokens_df.csv",
                                   sep = "")), 
                 delim = "|")
   
 #message to let the user know that each iteration has completed
-print(paste0("Second cleaning for ",names(cleanlist)[i]," has completed successfully."))
+print(paste0("Tokens created for ",names(cleanlist)[i],"."))
   
 } # end i loop
 

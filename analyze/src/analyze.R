@@ -15,158 +15,86 @@ pacman::p_load("tidyverse", "here", "assertr",
                "stopwords", "hms")
 # import data
 files <- list(
-  auth = 
-    here("analyze/input/authors_clean_df.csv"),
-  blackout = 
-    here("analyze/input/blackout_clean_df.csv"),
+  auth_tok = 
+    here("analyze/input/authors_tokens_df.csv"),
+  blackout_tok = 
+    here("analyze/input/blackout_tokens_df.csv"),
   
-  auth_tokens = 
-    here("report/input/auth_tokens.csv"),
   auth_users = 
     here("report/input/authors_frequsers.csv"), 
-  auth_bigrams = 
-    here("report/input/authors_freqbigrams.csv"),
+  auth_freq = 
+    here("report/input/authors_freqterms.csv"),
   
-  blackout_tokens = 
-    here("report/input/blackout_tokens.csv"),
   blackout_users = 
     here("report/input/blackout_frequsers.csv"), 
-  blackout_bigrams = 
-    here("report/input/blackout_freqbigrams.csv"),
-  blackout_first = 
-    here("report/input/blackout_freqfirst.csv"),
-  blackout_second = 
-    here("report/input/blackout_freqsecond.csv")
+  blackout_freq = 
+    here("report/input/blackout_freqterms.csv")
 )
 
-stopifnot(is_empty(files) != TRUE & length(files) == 10)
+stopifnot(is_empty(files) != TRUE & length(files) == 6)
 
-## Read in data, use a loop to accomodate new sheets
+auth_tokens <- tibble(read_delim(files$auth_tok, col_names = TRUE, delim = "|"))
 
-# remove variables with no info in columns
-# clean up tweets (source ref: ( Hicks , 2014) and ref: (Stanton 2013))
+auth_tokens <- auth_tokens %>%
+  verify(ncol(auth_tokens) == 15 & nrow(auth_tokens) == 10357)
 
-auth_df <- tibble(read_delim(files$auth, 
-                             col_names = TRUE, 
-                             delim = "|")) %>%
-  clean_names()
+blackout_tokens <- tibble(read_delim(files$blackout_tok, col_names = TRUE, delim = "|"))
 
-stopifnot(ncol(auth_df) == 15 & nrow(auth_df) == 1863)
+blackout_tokens <- blackout_tokens %>%
+  verify(ncol(blackout_tokens) == 15 & nrow(blackout_tokens) == 156037)
 
 ############################################################################
 # auth.csv #
 
-# remove useless bigrams, mostly TSwift related but other phrases
-bad_bigrams <- c("cruel summer", "good music", "album sales", "singles sales", 
-                 "music video", "track baby", "miss americana", "taylor swift", 
-                 "rt follow", "tweet follow", "subscribe keyword", "stupid love", 
-                 "it's gonna", "enter follow", "www.youtube.com watch", 
-                 "social media", "ich bin", "ist ein", "rtlike follow", 
-                 "rtlike subscribe", "road didn't", "let's make", "makes good", 
-                 "The Weeknd", "pic twitter")
-
-auth_tokens <- auth_df %>%
-  unnest_tokens(bigram, tweet_txt, token = "ngrams", n = 2) %>%
-  filter(!bigram %in% bad_bigrams) %>%
-  separate(bigram, into = c("first","second"), sep = " ", remove = FALSE) %>%
-  filter(!first %in% c(specific_swords, stopwords_smart, stopwords_en, 
-                         stopwords_ro,  stopwords_ru, stopwords_sp, 
-                         stopwords_pg, stopwords_fr, stopwords_de), 
-         !second %in% c(specific_swords, stopwords_smart, stopwords_en, 
-                          stopwords_ro,  stopwords_ru, stopwords_sp, 
-                          stopwords_pg, stopwords_fr, stopwords_de)) %>%
-  filter(str_detect(first, "[a-z]") &
-           str_detect(second, "[a-z]")) %>%
-  drop_na(bigram) %>%
-  filter(!username %in% tay_names)
-
-write_delim(auth_tokens, files$auth_tokens, delim = "|")
-
-# most active usernames (appearing more than 7 times) in authors dataset
+# most active usernames (appearing more than 3 times/day) in authors dataset
+# over time
 users_auth <- auth_tokens %>%
+  group_by(date_rec) %>%
   count(username, sort = TRUE) %>%
   mutate(username = reorder(username, n)) %>%
-  filter(n > 7) %>%
+  filter(n > 3) 
+
+users_auth <- users_auth %>%
+  verify(ncol(users_auth) == 3 & nrow(users_auth) == 409) %>%
   write_delim(files$auth_users, delim = "|")
 
 # characteristics of most common usernames
 #########################################
 
-# sort by user, create new object to work from
-auth_tokens_u <- auth_tokens
+# most commonly used bigrams of all usernames in auth datasets which appear more than once
+terms_auth <- auth_tokens %>%
+  group_by(date_rec, username, time_rec) %>%
+  count(word, sort = TRUE) %>%
+  mutate(word = as.character(word)) %>%
+  arrange(desc(n))
 
-# most commonly used bigrams
-bigrams_auth <- auth_tokens_u %>%
-  count(bigram, sort = TRUE) %>%
-  arrange(desc(n)) %>%
-  filter(n > 3)
-
-stopifnot(ncol(bigrams_auth) == 2 & nrow(bigrams_auth) == 33)
-
-write_delim(bigrams_auth, files$auth_bigrams, delim = "|")
+terms_auth  <-terms_auth %>%
+  verify(ncol(terms_auth) == 5 & nrow(terms_auth) == 9065) %>%
+  write_delim(files$auth_freq, delim = "|")
 
 ##############################################################################
 
-blackout_df <- tibble(read_delim(files$blackout, 
-                                 delim = "|", 
-                                 col_names = TRUE)) %>%
-  clean_names()
+# plot most active usernames (tweeting more than 5 times/day) in blackout dataset
+# since all tweets are from 6/01, data are not grouped by date
 
-stopifnot(ncol(blackout_df) == 15 & nrow(blackout_df) == 16009)
-
-blackout_tokens <- blackout_df %>%
-  unnest_tokens(bigram, tweet_txt, token = "ngrams", n = 2) %>%
-  filter(bigram %notin% bad_bigrams) %>%
-  separate(bigram, into = c("first","second"), sep = " ", remove = FALSE) %>%
-  filter(first %notin% c(specific_swords, stopwords_smart, stopwords_en, 
-                         stopwords_ro,  stopwords_ru, stopwords_sp, 
-                         stopwords_pg, stopwords_fr, stopwords_de), 
-         second %notin% c(specific_swords, stopwords_smart, stopwords_en, 
-                          stopwords_ro,  stopwords_ru, stopwords_sp, 
-                          stopwords_pg, stopwords_fr, stopwords_de)) %>%
-  filter(str_detect(first, "[a-z]") &
-           str_detect(second, "[a-z]")) %>%
-  drop_na(bigram) %>%
-  filter( username %notin% tay_names)
-
-write_delim(blackout_tokens, files$blackout_tokens, delim = "|")
-
-# plot most active usernames (appearing more than 55 times) in blackout dataset
 users_blackout <- blackout_tokens %>%
   count(username, sort = TRUE) %>%
   mutate(username = reorder(username, n)) %>%
-  filter(n > 55)
-stopifnot(ncol(users_blackout) == 2 & nrow(users_blackout) == 63)
+  filter(n > 5) 
 
-write_delim(users_blackout, files$blackout_users, delim = "|")
+users_blackout <- users_blackout %>%
+  verify(ncol(users_blackout) == 2 & nrow(users_blackout) == 8476) %>%
+  write_delim(files$blackout_users, delim = "|")
 
-# characteristics of most common usernames
-#########################################
-# create new df
-blackout_tokens_u <- blackout_tokens
+# most commonly used terms of all usernames in auth datasets by day
+terms_blackout <- blackout_tokens %>%
+  group_by(username, time_rec) %>%
+  count(word, sort = TRUE) %>%
+  mutate(word = as.character(word)) %>%
+  arrange(desc(n))
 
-# most commonly used bigrams
-bigrams_blackout <- blackout_tokens_u %>%
-  count(bigram, sort = TRUE) %>%
-  arrange(desc(n)) %>%
-  filter(n > 60)
-stopifnot(ncol(bigrams_blackout) == 2 & nrow(bigrams_blackout) == 54)
-write_delim(bigrams_blackout, files$blackout_bigrams, delim = "|")
-
-# most commonly used first terms 
-f_blackout <- blackout_tokens_u %>%
-  count(first, sort = TRUE) %>%
-  arrange(desc(n)) %>%
-  filter(n > 100)
-
-write_delim(f_blackout, files$blackout_first, delim = "|")
-
-# most commonly used second terms 
-s_blackout <- blackout_tokens_u %>%
-  count(second, sort = TRUE) %>%
-  arrange(desc(n)) %>%
-  filter(n > 90)
-
-write_delim(s_blackout, files$blackout_second, delim = "|")
+terms_blackout <- terms_blackout %>%
+  verify(ncol(terms_blackout) == 4 & nrow(terms_blackout) == 150264) %>%
+  write_delim(files$blackout_freq, delim = "|")
 
 # done 
