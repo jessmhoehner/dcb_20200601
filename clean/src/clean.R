@@ -100,7 +100,7 @@ specific_swords <- as.character(c("twitter", "twitter.com", "pic.twitter.com",
                      "don't", "didn't", "doesn't", "can't", "isn't", "wouldn't", "swift", 
                      "guys", "hey", "gratis", "minecraftpremiumaccount", "user", 
                      "account", "minecraftpremiumgenerator2015", "rockstarsupport", 
-                     "subscribe", "stream", "follow", "ain't"))
+                     "subscribe", "stream", "follow", "ain't", "retweet"))
 
   y_df <- df %>%
     unnest_tokens(word, tweet_txt) %>%
