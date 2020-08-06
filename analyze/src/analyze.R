@@ -49,19 +49,18 @@ blackout_tokens <- blackout_tokens %>%
 # most active usernames (appearing more than 3 times/day) in authors dataset
 # over time
 users_auth <- auth_tokens %>%
-  group_by(date_rec) %>%
+  group_by(date_rec, time_rec) %>%
   count(username, sort = TRUE) %>%
-  mutate(username = reorder(username, n)) %>%
-  filter(n > 3) 
+  mutate(username = reorder(username, n))
 
 users_auth <- users_auth %>%
-  verify(ncol(users_auth) == 3 & nrow(users_auth) == 409) %>%
+  verify(ncol(users_auth) == 4 & nrow(users_auth) == 1618) %>%
   write_delim(files$auth_users, delim = "|")
 
 # characteristics of most common usernames
 #########################################
 
-# most commonly used bigrams of all usernames in auth datasets which appear more than once
+# most commonly used terms of all usernames in auth datasets which appear more than once
 terms_auth <- auth_tokens %>%
   group_by(date_rec, username, time_rec) %>%
   count(word, sort = TRUE) %>%
@@ -78,15 +77,16 @@ terms_auth  <-terms_auth %>%
 # since all tweets are from 6/01, data are not grouped by date
 
 users_blackout <- blackout_tokens %>%
+  group_by(time_rec) %>%
   count(username, sort = TRUE) %>%
   mutate(username = reorder(username, n)) %>%
   filter(n > 5) 
 
 users_blackout <- users_blackout %>%
-  verify(ncol(users_blackout) == 2 & nrow(users_blackout) == 8476) %>%
+  verify(ncol(users_blackout) == 3 & nrow(users_blackout) == 10755) %>%
   write_delim(files$blackout_users, delim = "|")
 
-# most commonly used terms of all usernames in auth datasets by day
+# most commonly used terms of all usernames in auth datasets by time
 terms_blackout <- blackout_tokens %>%
   group_by(username, time_rec) %>%
   count(word, sort = TRUE) %>%
