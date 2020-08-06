@@ -1,9 +1,9 @@
 #!/usr/bin/env Rscript --vanilla
-# set expandtab ft=R ts=4 sw=4 ai fileencoding=utf-7
+# set expandtab ft=R ts=4 sw=4 ai fileencoding=utf-8
 #
 # Author: JR
 # Maintainer(s): JR
-# License: GPL V.02
+# License: GPL V.3.0
 #
 # -----------------------------------------------------------
 # dcblackoutinvestigation_public/report/src/report.R
@@ -30,31 +30,25 @@ files <- list(
     here("report/output/authors_daybar.png"),
   auth_timehist_plot = 
     here("report/output/authors_timehist.png"), 
-  auth_bigrams_plot = 
+  auth_word_plot = 
     here("report/output/authors_freqbigrams.png"),
   
   blackout_users_plot = 
     here("report/output/blackout_frequsers.png"), 
   blackout_timehist_plot = 
     here("report/output/blackout_timehist.png"), 
-  blackout_bigrams_plot = 
-    here("report/output/blackout_freqbigrams.png"), 
-  blackout_first_plot = 
-    here("report/output/blackout_freqfirst.png"), 
-  blackout_second_plot = 
-    here("report/output/blackout_freqsecond.png") 
+  blackout_word_plot = 
+    here("report/output/blackout_freqbigrams.png")
   
 )
 
-stopifnot(is_empty(files) != TRUE & length(files) == 12)
+stopifnot(is_empty(files) != TRUE & length(files) == 11)
 
 # authors.csv 
 
-# read in data 
-
 users_auth <- as.data.frame(read_delim(files$auth_users, delim="|"))
 
-# histogram of numbers of tweets
+# numbers of tweets over time
 
 u_df <- as.data.frame(users_auth %>%
   select(-c(date_rec, time_rec)) %>%
@@ -155,15 +149,30 @@ ggsave(files$auth_timehist_plot,
 
 users_blackout <- as.data.frame(read_delim(files$blackout_users, delim="|"))
 
-# histogram of numbers of tweets
-users_blackout %>%
-  ggplot(aes(reorder(username, n), n, username)) +
-  coord_flip() + 
-  geom_col() +
-  theme_minimal() +
-  labs(title = "Usernames with > 55 tweets in blackout dataset", 
-       y = "Username", 
-       x = "number of tweets")
+# numbers of tweets over time
+
+u_df2 <- as.data.frame(users_blackout %>%
+                        select(-c(time_rec)) %>%
+                        gather(key = "username", value = "n")%>%
+                        pivot_wider(names_from = "username", 
+                                    values_from = "n", values_fn = sum) %>%
+                        t())
+
+# need to to this seperately because of row.names 
+u_tweets2 <- u_df2 %>%
+  mutate(username = row.names(u_df2), 
+         n_tweets = V1, 
+         name = factor(username, levels = names(sort(table(username), 
+                                                     decreasing = TRUE))))
+
+(ut_plot2  <- u_tweets2 %>%
+    filter(n_tweets > 100) %>%
+    ggplot(aes(reorder(name, n_tweets), n_tweets, name)) +
+    geom_col() +
+    coord_flip() +
+    labs(title = "Usernames with > 100 tweets in blackout dataset", 
+         y = "count of number of tweets", 
+         x = "number of tweets"))
 
 ggsave(files$blackout_users_plot, 
        plot = last_plot(), 
@@ -176,73 +185,97 @@ ggsave(files$blackout_users_plot,
        dpi = 300,
        limitsize = TRUE)
 
-blackout_tokens <- as.data.frame(read_delim(files$blackout_tokens, delim="|"))%>%
-  select(date_rec, time_rec, username, clean_tweet)
+# how long had these most active accounts been active?
+# has their activity changed over time?
+# tweets by day, colored by most active users over time
+
+#u_active2 <- u_tweets2 %>%
+#  filter(n_tweets > 200) %>%
+#  select(name)
+
+#names(users_blackout$time_rec) <- users_blackout$time_rec
+
+#users_blackout %>%
+#  filter(username %in% u_active2$name) %>%
+#  mutate(time_rec = hms::as.hms(time_rec)) %>%
+#  ggplot(aes(time_rec, n, fill = username)) +
+#  geom_col() +
+#  scale_x_time(name = waiver(), 
+#               breaks = "1 hour", 
+#               labels = waiver()) +
+#  theme_minimal() +
+#  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+#  labs(title = "Number of Tweets Over Time by 11 Most Active Usernames", 
+#       y = "Number of tweets", 
+#       x = "Time")
+
+#ggsave(files$auth_daybar_plot, 
+#       plot = last_plot(), 
+#       device = NULL,
+#       path = NULL,
+#       scale = 1,
+#       width = NA,
+#      height = NA,
+#       dpi = 300,
+#       limitsize = TRUE)
+
+
+#blackout_tokens <- as.data.frame(read_delim(files$blackout_tokens, delim="|"))%>%
+#  select(date_rec, time_rec, username, clean_tweet)
 
 # top 10 users, noticed steep drop off after 10
-users_blackout_top5 <- users_blackout$username[1:10]
+#users_blackout_top5 <- users_blackout$username[1:10]
 
-blackout_tweets <- bind_rows(blackout_tokens) %>%
-  filter(username %in% users_blackout_top5)
+#blackout_tweets <- bind_rows(blackout_tokens) %>%
+#  filter(username %in% users_blackout_top5)
 
-ggplot(blackout_tweets, aes(time_rec, fill = username)) + 
-  geom_histogram(position = "identity", bins = 100) +
-  theme_minimal() +
-  labs(title = "Distribution of Tweets of 10 Most Active Users in Blackout dataset", 
-       y = "count of number of tweets", 
-       x = "Time")
+#ggplot(blackout_tweets, aes(time_rec, fill = username)) + 
+#  geom_histogram(position = "identity", bins = 100) +
+#  theme_minimal() +
+#  labs(title = "Distribution of Tweets of 10 Most Active Users in Blackout dataset", 
+#       y = "count of number of tweets", 
+#       x = "Time")
 
-ggsave(files$blackout_timehist_plot, 
-       plot = last_plot(), 
-       device = NULL,
-       path = NULL,
-       scale = 1,
-       width = NA,
-       height = NA,
-       units = "in",
-       dpi = 300,
-       limitsize = TRUE)
+#ggsave(files$blackout_timehist_plot, 
+#       plot = last_plot(), 
+#       device = NULL,
+#       path = NULL,
+#       scale = 1,
+#       width = NA,
+#       height = NA,
+#       units = "in",
+#       dpi = 300,
+#       limitsize = TRUE)
 
 # plot bigrams
 
-bigrams_blackout <- as.data.frame(read_delim(files$blackout_bigrams, delim="|"))
+terms_blkout <- as.data.frame(read_delim(files$blackout_freq, delim="|")) %>%
+  arrange(n)
 
-bigrams_blackout %>%
-  ggplot(aes(reorder(bigram, n), n, bigram)) +
+t_df2 <- as.data.frame(terms_blkout %>%
+                        select(-c(time_rec, username)) %>%
+                        gather(key = "word", value = "n")%>%
+                        pivot_wider(names_from = "word", values_from = "n", values_fn = sum) %>%
+                        t())
+
+# need to to this seperately because of row.names 
+t_df2 <- t_df2 %>%
+  mutate(word = row.names(t_df2), 
+         n_tweets = V1, 
+         word= factor(word, levels = names(sort(table(word), 
+                                                     decreasing = TRUE))))
+t_df2 %>%
+  filter(n > 4) %>%
+  ggplot(aes(reorder(word, n_tweets), n_tweets, word)) +
   geom_col() +
   xlab(NULL) +
   theme_minimal() +
   coord_flip() +
-  labs(title = "Bigrams appearing in > 60 tweets in blackout dataset", 
-       y = "Number of Occurances", 
-       x = "Bigram")
-
-ggsave(files$blackout_bigrams_plot, 
-       plot = last_plot(), 
-       device = NULL,
-       path = NULL,
-       scale = 1,
-       width = NA,
-       height = NA,
-       units = "in",
-       dpi = 300,
-       limitsize = TRUE)
-
-# plot freq first terms
-
-f_blackout <- as.data.frame(read_delim(files$blackout_first, delim="|"))
-
-f_blackout %>%
-  ggplot(aes(reorder(first, n), n, first)) +
-  geom_col() +
-  xlab(NULL) +
-  theme_minimal() +
-  coord_flip() +
-  labs(title = "First terms appearing in > 100 tweets in blackout dataset", 
+  labs(title = "Words appearing in > 4 tweets in blackout dataset", 
        y = "Number of Occurances", 
        x = "Word")
 
-ggsave(files$blackout_first_plot, 
+ggsave(files$blackout_word_plot, 
        plot = last_plot(), 
        device = NULL,
        path = NULL,
@@ -253,29 +286,6 @@ ggsave(files$blackout_first_plot,
        dpi = 300,
        limitsize = TRUE)
 
-# plot freq second terms
-
-s_blackout <- as.data.frame(read_delim(files$blackout_second, delim="|"))
-
-s_blackout %>%
-  ggplot(aes(reorder(second, n), n, second)) +
-  geom_col() +
-  xlab(NULL) +
-  theme_minimal() +
-  coord_flip() +
-  labs(title = "Second terms appearing in > 90 tweets in blackout dataset", 
-       y = "Number of Occurances", 
-       x = "Word")
-
-ggsave(files$blackout_second_plot, 
-       plot = last_plot(), 
-       device = NULL,
-       path = NULL,
-       scale = 1,
-       width = NA,
-       height = NA,
-       units = "in",
-       dpi = 300,
-       limitsize = TRUE)
+# stopped here for the day
 
 # done
