@@ -2,9 +2,9 @@
 #
 #Author: JR
 #Maintainer: JR
-#License:  2019, EICC, GPL v3 or later
+#License:  2020, EICC, GPL v3 or later
 # 
-# dcblackoutinvestigation_public/clean/src/clean.R
+# dcblackoutinvestigation_public/clean/Makefile
 #----------------------------------------------------
 #
 
