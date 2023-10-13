@@ -23,6 +23,8 @@ files <- list(
     here("report/input/blackout_frequsers.csv"), 
   blackout_freq = 
     here("report/input/blackout_freqterms.csv"),
+  blackout_tokens = 
+    here("analyze/input/blackout_tokens_df.csv"),
   
   auth_users_plot = 
     here("report/output/authors_frequsers.png"),
@@ -61,14 +63,15 @@ u_tweets <- u_df %>%
   mutate(username = row.names(u_df), 
          n_tweets = V1, 
          name = factor(username, levels = names(sort(table(username), 
-                                                     decreasing = TRUE))))
+                                                     decreasing = TRUE)))) %>%
+  head(10)
 
 (ut_plot  <- u_tweets %>%
   filter(n_tweets > 20) %>%
   ggplot(aes(reorder(username, n_tweets), n_tweets, username)) +
   geom_col() +
   coord_flip() +
-  labs(title = "Usernames with > 20 tweets in authors dataset", 
+  labs(title = "10 users with with > 20 tweets in authors dataset", 
        y = "count of number of tweets", 
        x = "number of tweets"))
 
@@ -91,14 +94,21 @@ users_auth %>%
   filter(username %in% u_active$username) %>%
   ggplot(aes(date_rec, n, fill = username)) +
   geom_col() +
-  scale_x_date(date_breaks = "1 day", date_labels = "%m-%d") +
+  scale_fill_viridis_d("Username:") +
+  scale_x_date(date_breaks = "1 week", date_labels = "%m-%d") +
   scale_y_continuous(breaks = c(0, 100, 200, 300, 400, 500, 600, 700, 800, 
                                 900, 1000, 1100, 1200, 1300, 1400, 1500)) +
-  theme_minimal() +
-  theme(axis.text.x=element_text(angle=90, hjust=1)) +
-  labs(title = "Number of Tweets Over Time by 10 Most Active Usernames", 
-       y = "Number of tweets", 
-       x = "Date")
+  theme_classic() +
+ # theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  labs(title = "Number of Tweets Per Day by 10 Most Active Usernames",
+       subtitle = glue::glue("Note the surge in activity around the campaign and consistent activity 
+                   even months prior from the most active account"),
+       y = NULL,
+       x = NULL) +
+  theme(
+    legend.position = "top",
+    panel.spacing = unit(.5, "picas"),
+    axis.text.x = element_text(size = 8))
 
 ggsave(files$auth_daybar_plot, 
        plot = last_plot(), 
@@ -125,13 +135,19 @@ users_auth %>%
   mutate(datetime = ymd_hms(datetime)) %>%
   ggplot(aes(datetime, n, color = username, fill = username)) +
   geom_col() +
-  scale_x_datetime(breaks = "1 hour", labels = waiver()) +
-  theme_minimal() +
+  scale_fill_viridis_d() +
+  scale_color_viridis_d() +
+  scale_x_datetime(breaks = "3 hours", labels = waiver()) +
+  theme_classic() +
   theme(axis.text.x=element_text(angle=90, hjust=1)) +
   ylim(0, 50) +
-  labs(title = "Number of Tweets Over Time by 10 Most Active Usernames", 
-       y = "Number of tweets", 
-       x = "Time")
+  labs(title = "Tweets Over Time by 3 Most Active Usernames", 
+       y = NULL, 
+       x = NULL) +
+  theme(
+    legend.position = "top",
+    panel.spacing = unit(.5, "picas"),
+    axis.text.x = element_text(size = 8))
 
 ggsave(files$auth_timehist_plot, 
        plot = last_plot(), 
@@ -174,43 +190,43 @@ u_tweets2 <- u_df2 %>%
          y = "count of number of tweets", 
          x = "number of tweets"))
 
-ggsave(files$blackout_users_plot, 
-       plot = last_plot(), 
-       device = NULL,
-       path = NULL,
-       scale = 1,
-       width = NA,
-       height = NA,
-       units = "in",
-       dpi = 300,
-       limitsize = TRUE)
+# ggsave(files$blackout_users_plot, 
+#        plot = last_plot(), 
+#        device = NULL,
+#        path = NULL,
+#        scale = 1,
+#        width = NA,
+#        height = NA,
+#        units = "in",
+#        dpi = 300,
+#        limitsize = TRUE)
 
 # how long had these most active accounts been active?
 # has their activity changed over time?
 # tweets by day, colored by most active users over time
 
-#u_active2 <- u_tweets2 %>%
-#  filter(n_tweets > 200) %>%
-#  select(name)
+u_active2 <- u_tweets2 %>%
+ filter(n_tweets > 200) %>%
+ select(name)
 
-#names(users_blackout$time_rec) <- users_blackout$time_rec
+names(users_blackout$time_rec) <- users_blackout$time_rec
 
-#users_blackout %>%
-#  filter(username %in% u_active2$name) %>%
-#  mutate(time_rec = hms::as.hms(time_rec)) %>%
-#  ggplot(aes(time_rec, n, fill = username)) +
-#  geom_col() +
-#  scale_x_time(name = waiver(), 
-#               breaks = "1 hour", 
-#               labels = waiver()) +
-#  theme_minimal() +
-#  theme(axis.text.x=element_text(angle=90, hjust=1)) +
-#  labs(title = "Number of Tweets Over Time by 11 Most Active Usernames", 
-#       y = "Number of tweets", 
-#       x = "Time")
+users_blackout %>%
+ filter(username %in% u_active2$name) %>%
+ mutate(time_rec = hms::as_hms(time_rec)) %>%
+ ggplot(aes(time_rec, n, fill = username)) +
+ geom_col() +
+ scale_x_time(name = waiver(),
+              breaks = "1 hour",
+              labels = waiver()) +
+ theme_minimal() +
+ theme(axis.text.x=element_text(angle=90, hjust=1)) +
+ labs(title = "Number of Tweets Over Time by 11 Most Active Usernames",
+      y = "Number of tweets",
+      x = "Time")
 
-#ggsave(files$auth_daybar_plot, 
-#       plot = last_plot(), 
+#ggsave(files$auth_daybar_plot,
+#       plot = last_plot(),
 #       device = NULL,
 #       path = NULL,
 #       scale = 1,
@@ -220,24 +236,29 @@ ggsave(files$blackout_users_plot,
 #       limitsize = TRUE)
 
 
-#blackout_tokens <- as.data.frame(read_delim(files$blackout_tokens, delim="|"))%>%
-#  select(date_rec, time_rec, username, clean_tweet)
+blackout_tokens <- as.data.frame(read_delim(files$blackout_freq, delim="|")) %>%
+  select(date_rec, time_rec, username, clean_tweet)
 
-# top 10 users, noticed steep drop off after 10
-#users_blackout_top5 <- users_blackout$username[1:10]
+#top 10 users, noticed steep drop off after 10
+users_blackout_top5 <- users_blackout$username[1:10]
 
-#blackout_tweets <- bind_rows(blackout_tokens) %>%
-#  filter(username %in% users_blackout_top5)
+blackout_tweets <- bind_rows(blackout_tokens) %>%
+  filter(username %in% users_blackout_top5)
 
-#ggplot(blackout_tweets, aes(time_rec, fill = username)) + 
-#  geom_histogram(position = "identity", bins = 100) +
-#  theme_minimal() +
-#  labs(title = "Distribution of Tweets of 10 Most Active Users in Blackout dataset", 
-#       y = "count of number of tweets", 
-#       x = "Time")
+blackout_tweets %>%
+  ggplot(aes(time_rec, fill = username)) +
+  geom_histogram(position = "identity", bins = 100) +
+  theme_classic() +
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Tweets of 10 Most Active Users in Blackout dataset",
+       y = NULL,
+       x = NULL) +
+  theme(legend.position = "none",
+         panel.spacing = unit(.5, "picas"),
+         axis.text.x = element_text(size = 8))
 
-#ggsave(files$blackout_timehist_plot, 
-#       plot = last_plot(), 
+#ggsave(files$blackout_timehist_plot,
+#       plot = last_plot(),
 #       device = NULL,
 #       path = NULL,
 #       scale = 1,

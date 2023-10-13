@@ -1,0 +1,146 @@
+---
+title: "Sentiment Analysis Practice"
+author: "JH"
+format: html
+editor: visual
+---
+
+## Learning Tidy Text in Quarto
+
+This is my very first practice at tidying text using tutorials before I practice on my own datasets of interest. I'll largely be using material from Julia Silge, Emil Hvitfeldt, and David Robinson.
+
+It's been a minute since I've done any kind of stats analysis project and for an upcoming project I'll likely need some NLP skills so I'm working on those now. See links to resources I used at the end!
+
+## Prep
+
+This is my preferred way to load packages and read in data. See my blog post for HRDAG for more background on this style of principled data processing. These are all of the packages you will need to use the rest of this notebook and `p_load` will install any dependencies you may need.
+
+I've also called all of the files and functions you'll need to reproduce my work.
+
+```{r}
+
+# load packages
+pacman::p_load(tidyverse, forcats, readr, janitor, 
+        assertr, stringr, tidytext, stopwords, 
+        here, textdata, ggplot2, lubridate, scales, glue)
+
+inputs <- list(
+              blackout_df = here("tutorial/input/blackout.csv"), 
+              clean_blackout = here("tutorial/input/functions/clean_blackout.R"))
+
+# source(inputs$clean_blackout)
+
+sentiments <- get_sentiments("afinn")
+
+```
+
+This needs some minimal tidying since it already arrived in a one-tweet-per line format (thanks twint!) before we get it into a one-token-per-row format.
+
+```{r}
+
+remove_reg <- "&amp;|&lt;|&gt;"
+
+blackout_df <- read_csv(inputs$blackout_df, show_col_types = FALSE) %>%
+  clean_names() %>%
+  #get rid of some columns we don't need, largely empty
+  select(-c(created_at, place, cashtags, 
+            near:retweet_id, retweet_date:trans_dest)) %>%
+  mutate(tweet_clean = enc2utf8(str_remove_all(tweet, remove_reg)), 
+         user_id = as.character(user_id), 
+         date = ymd(date))
+
+```
+
+First, let's look at some indications we can see in the data that support the hypothesis that this was a hoax perpetuated by a few very prolific users.
+
+**Initial Explorations**
+
+This data is from June 1st 2020 between the hours of 9:33 am - 1:43pm. It was collected within days of the tweets being made so it is possible that some tweets may be missing.
+
+What does the number of tweets per user over time look like?
+
+```{r}
+
+tweets_time <- blackout_df %>%
+  select(time, user_id, username, tweet) %>%
+  group_by(time, username) %>%
+  # tweets per user, per minute
+  add_count(time)
+
+# users with > 5 tweets/min
+
+tweets_time %>%
+  ggplot(aes(time, n)) +
+  geom_col(linewidth = 2) +
+  scale_y_continuous(limits = c(0, 10), 
+                     breaks = c(0, 5, 10)) +
+  scale_x_time(labels = label_time("%H:%M:%S"))
+```
+
+Which accounts tweeted about this first?
+
+```{r}
+
+```
+
+Are userids and usernames unique?
+
+```{r}
+
+duplicated_users <- blackout_df %>%
+  select(user_id, username, name) %>%
+  get_dupes() %>%
+  distinct()
+```
+
+No, some accounts tweeted as many as 30 times over the course of the period
+
+Which accounts spread it the most?
+
+Which accounts were the most prolific over the course of the activity?
+
+Were there any duplicated tweets between accounts?
+
+What does the number of tweets over time look like?
+
+**Exploration of sentiments in the tweets**
+
+I've decided to remove the snowball list of stopwords as these are tweets so I can expect them to include a lot of articles and other words that we likely won't find very meaningful. I'm also expecting I'll have to make a custom list of stopwords to remove link and Twitter-specific words.
+
+I'm also thinking that we may find bigrams or even trigrams more helpful in interpreting the sentiment of a given tweet than single words so I'm keeping in the tweet column to look at this later.
+
+```{r}
+
+custom_stops <- data.frame(word = c("pic.twitter.com", "https", "twitter.com", "status", "twitter", "like", "know", "tweets", "para", "isso", "something", "tweet", "eles", "are", "the"))
+
+tidy_blackout <- blackout_df %>%
+  group_by(date, time, username) %>%
+  ungroup() %>%
+  unnest_tokens(word, tweet, 
+                drop = FALSE,
+                token = "words") %>%
+  #get rid of one letter words and other articles/junk
+  filter(nchar(word) > 3) %>%
+  #remove snowball stopwords
+  anti_join(get_stopwords()) %>%
+  # remove custom stopwords
+  anti_join(custom_stops)
+
+```
+
+**Initial Explorations**
+
+Which accounts tweeted about this first?
+
+```{r}
+
+
+
+
+```
+
+Which accounts are the most prolific?
+
+Were there any duplicated tweets between accounts?
+
+What does the number of tweets over time look like?
